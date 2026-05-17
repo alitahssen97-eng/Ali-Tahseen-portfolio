@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  imageUrl    String
+  liveLink    String?
+  githubLink  String?
+  tags        String[]
+  featured    Boolean  @default(false)
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("projects")
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String        @db.Text
+  status    MessageStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+
+  @@map("messages")
+}
+
+model SiteSetting {
+  id              String @id @default("singleton")
+  profileImageUrl String @default("/images/ali-profile.svg")
+
+  @@map("site_settings")
+}
+
+model ContentBlock {
+  id        String   @id @default(cuid())
+  key       String
+  locale    String
+  value     String   @db.Text
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([key, locale])
+  @@map("content_blocks")
+}
+
+enum MessageStatus {
+  PENDING
+  READ
+  REPLIED
+  ARCHIVED
+}

@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Eng. Ali Tahseen — Luxury Portfolio
 
-## Getting Started
+Ultra-premium personal portfolio built with Next.js 16 (App Router), React 19, TypeScript, Prisma, Supabase, Shadcn UI, Tailwind CSS v4, and Framer Motion.
 
-First, run the development server:
+## Architecture
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+ali/
+├── app/
+│   ├── layout.tsx          # Root layout, fonts, metadata
+│   ├── page.tsx            # Home (server component, fetches projects)
+│   ├── globals.css         # Luxury theme tokens
+│   └── api/contact/        # POST contact form → Prisma Message
+├── components/
+│   ├── ui/                 # Shadcn-style primitives (Button, Card, Input…)
+│   ├── layout/             # Navbar, Footer
+│   ├── sections/           # Hero, About, Projects, Contact
+│   └── motion/             # FadeIn animation wrapper
+├── lib/
+│   ├── prisma.ts           # Prisma singleton
+│   ├── supabase.ts         # Supabase JS client
+│   ├── projects.ts         # getProjects() with DB + fallback
+│   ├── constants.ts        # Site config & social links
+│   └── data/sample-projects.ts
+├── hooks/
+│   └── use-in-view.ts      # Intersection observer for scroll animations
+└── prisma/
+    ├── schema.prisma       # Project + Message models
+    └── seed.ts             # Sample portfolio data
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Data flow
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Projects** — `page.tsx` calls `getProjects()` → Prisma queries `Project` table. Falls back to sample data if `DATABASE_URL` is unset.
+2. **Contact** — Client form POSTs to `/api/contact` → Zod validation → Prisma creates `Message` row.
+3. **Supabase** — Client configured in `lib/supabase.ts` for future auth/storage; database uses Supabase Postgres via Prisma.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Quick start
 
-## Learn More
+```bash
+# 1. Install dependencies
+npm install
 
-To learn more about Next.js, take a look at the following resources:
+# 2. Copy environment variables
+cp .env.example .env
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 3. Add your Supabase Postgres URLs and keys to .env
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 4. Push schema & seed sample projects
+npm run db:push
+npm run db:seed
 
-## Deploy on Vercel
+# 5. Start development server
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open [http://localhost:3000](http://localhost:3000).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Pooled Postgres connection (Supabase, port 6543) |
+| `DIRECT_URL` | Direct Postgres connection for migrations |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run db:push` | Sync Prisma schema to database |
+| `npm run db:seed` | Seed sample projects |
+| `npm run db:studio` | Open Prisma Studio |
+
+## Design system
+
+- **Background:** `#080808` deep charcoal
+- **Accent:** Emerald (`#10b981`)
+- **Text:** Cream/beige (`#f5f0e8`)
+- **Typography:** Cormorant Garamond (display) + DM Sans (body)

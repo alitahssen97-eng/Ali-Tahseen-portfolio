@@ -1,0 +1,221 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import { Instagram, Mail, MessageCircle, Send } from "lucide-react";
+import { FadeIn } from "@/components/motion/fade-in";
+import { useLocale } from "@/components/providers/locale-provider";
+import { layout, siteConfig } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
+type FormState = "idle" | "loading" | "success" | "error";
+
+export function ContactSection() {
+  const { t } = useLocale();
+  const [formState, setFormState] = useState<FormState>("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const channels = [
+    {
+      key: "email" as const,
+      href: `mailto:${siteConfig.email}`,
+      icon: Mail,
+      value: siteConfig.email,
+      external: false,
+    },
+    {
+      key: "instagram" as const,
+      href: siteConfig.instagram.url,
+      icon: Instagram,
+      value: `@${siteConfig.instagram.handle}`,
+      external: true,
+    },
+    {
+      key: "whatsapp" as const,
+      href: siteConfig.whatsapp.url,
+      icon: MessageCircle,
+      value: siteConfig.whatsapp.display,
+      external: true,
+    },
+  ];
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setFormState("loading");
+    setErrorMessage("");
+
+    const formData = new FormData(e.currentTarget);
+    const payload = {
+      name: formData.get("name") as string,
+      email: formData.get("email") as string,
+      subject: formData.get("subject") as string,
+      message: formData.get("message") as string,
+    };
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? t.contact.form.errorGeneric);
+      }
+
+      setFormState("success");
+      e.currentTarget.reset();
+    } catch (err) {
+      setFormState("error");
+      setErrorMessage(
+        err instanceof Error ? err.message : t.contact.form.errorGeneric
+      );
+    }
+  }
+
+  return (
+    <section id="contact" className={`relative ${layout.section}`}>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-800/40 to-transparent" />
+      <div className="pointer-events-none absolute bottom-0 start-1/2 h-[400px] w-[600px] -translate-x-1/2 rounded-full bg-emerald-950/20 blur-[120px] rtl:translate-x-1/2" />
+
+      <div className={`relative ${layout.container}`}>
+        <FadeIn>
+          <p className="text-xs font-medium uppercase tracking-[0.4em] text-emerald-500/90">
+            {t.contact.label}
+          </p>
+          <h2 className="mt-3 max-w-2xl font-display text-3xl font-light text-cream-50 sm:mt-4 sm:text-4xl md:text-5xl lg:text-6xl">
+            {t.contact.title}
+          </h2>
+        </FadeIn>
+
+        <div className="mt-10 grid gap-10 sm:mt-14 sm:gap-12 lg:mt-16 lg:grid-cols-5 lg:gap-16">
+          <FadeIn delay={0.1} className="lg:col-span-2">
+            <div className="space-y-6">
+              <p className="leading-relaxed text-cream-300/70">
+                {t.contact.intro}
+              </p>
+              <ul className="space-y-4">
+                {channels.map(({ key, href, icon: Icon, value, external }) => (
+                  <li key={key}>
+                    <Link
+                      href={href}
+                      target={external ? "_blank" : undefined}
+                      rel={external ? "noopener noreferrer" : undefined}
+                      className="group flex items-start gap-4 rounded-lg border border-transparent p-3 transition-all hover:border-neutral-800 hover:bg-neutral-950/50"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border border-neutral-800 bg-neutral-950/80 text-emerald-500 transition-colors group-hover:border-emerald-800/50">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span>
+                        <span className="block text-xs uppercase tracking-[0.2em] text-cream-400/50">
+                          {t.contact.channels[key]}
+                        </span>
+                        <span className="mt-0.5 block break-all text-sm text-cream-200 transition-colors group-hover:text-emerald-300 sm:break-normal">
+                          {value}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={0.2} className="lg:col-span-3">
+            <form
+              onSubmit={handleSubmit}
+              className="rounded-lg border border-neutral-800/80 bg-neutral-950/40 p-5 backdrop-blur-md sm:p-8"
+            >
+              <div className="grid gap-6 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="name">{t.contact.form.name}</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    required
+                    placeholder={t.contact.form.namePlaceholder}
+                    disabled={formState === "loading"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">{t.contact.form.email}</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder={t.contact.form.emailPlaceholder}
+                    disabled={formState === "loading"}
+                  />
+                </div>
+              </div>
+              <div className="mt-6 space-y-2">
+                <Label htmlFor="subject">{t.contact.form.subject}</Label>
+                <Input
+                  id="subject"
+                  name="subject"
+                  required
+                  placeholder={t.contact.form.subjectPlaceholder}
+                  disabled={formState === "loading"}
+                />
+              </div>
+              <div className="mt-6 space-y-2">
+                <Label htmlFor="message">{t.contact.form.message}</Label>
+                <Textarea
+                  id="message"
+                  name="message"
+                  required
+                  placeholder={t.contact.form.messagePlaceholder}
+                  disabled={formState === "loading"}
+                />
+              </div>
+
+              <AnimatePresence mode="wait">
+                {formState === "success" && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-4 text-sm text-emerald-400"
+                  >
+                    {t.contact.form.success}
+                  </motion.p>
+                )}
+                {formState === "error" && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mt-4 text-sm text-red-400"
+                  >
+                    {errorMessage}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <Button
+                type="submit"
+                className="mt-8 w-full sm:w-auto"
+                disabled={formState === "loading"}
+              >
+                {formState === "loading" ? (
+                  t.contact.form.sending
+                ) : (
+                  <>
+                    {t.contact.form.send}
+                    <Send className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </form>
+          </FadeIn>
+        </div>
+      </div>
+    </section>
+  );
+}

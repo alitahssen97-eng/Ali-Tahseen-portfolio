@@ -1,0 +1,32 @@
+.plasma-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Shown when WebGL is unavailable (old GPU, disabled acceleration, context limit) */
+.plasma-fallback {
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 25% 30%,
+      rgba(16, 185, 129, 0.28),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 75% 70%,
+      rgba(5, 150, 105, 0.18),
+      transparent 50%
+    ),
+    #080808;
+  animation: plasma-fallback-pulse 12s ease-in-out infinite alternate;
+}
+
+@keyframes plasma-fallback-pulse {
+  0% {
+    filter: brightness(0.95);
+  }
+  100% {
+    filter: brightness(1.08);
+  }
+}

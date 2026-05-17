@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0f0f"/>
+      <stop offset="100%" stop-color="#1a2e24"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <circle cx="200" cy="160" r="72" fill="#1f2937" stroke="url(#accent)" stroke-width="3"/>
+  <ellipse cx="200" cy="320" rx="110" ry="90" fill="#1f2937" stroke="url(#accent)" stroke-width="2" opacity="0.9"/>
+  <text x="200" y="175" text-anchor="middle" font-family="Georgia, serif" font-size="48" fill="#f5f0e8" opacity="0.9">AT</text>
+</svg>
