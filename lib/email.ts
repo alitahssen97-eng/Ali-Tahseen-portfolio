@@ -1,4 +1,5 @@
 import { getAdminEmails } from "@/lib/auth/admin";
+import { getSiteUrl } from "@/lib/seo/site-url";
 
 export type ContactNotification = {
   name: string;
@@ -7,20 +8,23 @@ export type ContactNotification = {
   message: string;
 };
 
-function getNotifyRecipients(): string[] {
-  const explicit = process.env.NOTIFY_EMAIL?.split(",").map((e) => e.trim()).filter(Boolean);
-  if (explicit?.length) return explicit;
-  return getAdminEmails();
-}
+export type EmailNotifyResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason:
+        | "missing_resend_config"
+        | "no_recipients"
+        | "resend_rejected";
+      detail?: string;
+    };
 
-function getSiteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
-  }
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  return "http://localhost:3000";
+function getNotifyRecipients(): string[] {
+  const explicit = process.env.NOTIFY_EMAIL?.split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (explicit?.length) return explicit;
+  return getAdminEmails().map((e) => e.toLowerCase());
 }
 
 function escapeHtml(s: string): string {
@@ -58,10 +62,12 @@ function buildHtml(data: ContactNotification): string {
 async function sendViaResend(
   to: string[],
   data: ContactNotification
-): Promise<boolean> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
-  if (!apiKey || !from) return false;
+): Promise<{ ok: true } | { ok: false; detail: string }> {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.EMAIL_FROM?.trim();
+  if (!apiKey || !from) {
+    return { ok: false, detail: "RESEND_API_KEY or EMAIL_FROM is empty" };
+  }
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -80,35 +86,49 @@ async function sendViaResend(
 
   if (!res.ok) {
     const err = await res.text();
-    console.error("Resend error:", res.status, err);
-    return false;
+    console.error("[email] Resend API error:", res.status, err);
+    return { ok: false, detail: `HTTP ${res.status}: ${err}` };
   }
 
-  return true;
+  return { ok: true };
 }
 
-/** Sends admin notification; never throws — contact form should still succeed if email fails. */
+/** Sends admin notification; never throws — contact form still succeeds if email fails. */
 export async function notifyAdminNewMessage(
   data: ContactNotification
-): Promise<void> {
+): Promise<EmailNotifyResult> {
   const recipients = getNotifyRecipients();
   if (recipients.length === 0) {
     console.warn(
-      "Email notify skipped: set NOTIFY_EMAIL or ADMIN_EMAILS in .env"
+      "[email] Skipped: set NOTIFY_EMAIL or ADMIN_EMAILS in environment variables."
     );
-    return;
+    return { ok: false, reason: "no_recipients" };
   }
 
-  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+  if (!process.env.RESEND_API_KEY?.trim() || !process.env.EMAIL_FROM?.trim()) {
     console.warn(
-      "Email notify skipped: set RESEND_API_KEY and EMAIL_FROM in .env"
+      "[email] Skipped: set RESEND_API_KEY and EMAIL_FROM (see .env.example)."
     );
-    return;
+    return { ok: false, reason: "missing_resend_config" };
   }
 
   try {
-    await sendViaResend(recipients, data);
+    const result = await sendViaResend(recipients, data);
+    if (!result.ok) {
+      console.error("[email] Failed to notify:", result.detail);
+      console.error(
+        "[email] Tip: verify a domain at resend.com/domains and use EMAIL_FROM like",
+        '"Portfolio <notify@yourdomain.com>". For testing only: "Portfolio <onboarding@resend.dev>".'
+      );
+      return { ok: false, reason: "resend_rejected", detail: result.detail };
+    }
+
+    console.info("[email] Notification sent to:", recipients.join(", "));
+    return { ok: true };
   } catch (error) {
-    console.error("Failed to send admin notification:", error);
+    const detail =
+      error instanceof Error ? error.message : "Unknown email error";
+    console.error("[email] Failed to send admin notification:", detail);
+    return { ok: false, reason: "resend_rejected", detail };
   }
 }

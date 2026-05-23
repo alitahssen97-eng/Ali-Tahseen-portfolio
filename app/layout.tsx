@@ -5,7 +5,7 @@ import { ProfileImageProvider } from "@/components/providers/profile-provider";
 import { getProfileImageUrl } from "@/lib/site-settings";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getSiteContentBundle } from "@/lib/content";
-import { siteConfig } from "@/lib/constants";
+import { buildRootMetadata } from "@/lib/seo/metadata";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -29,24 +29,7 @@ const cairo = Cairo({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: siteConfig.title,
-  description: siteConfig.description,
-  keywords: [
-    "Ali Tahseen",
-    "علي تحسين",
-    "Expert Engineer",
-    "Full-Stack Developer",
-    "Portfolio",
-    "Next.js",
-  ],
-  authors: [{ name: siteConfig.name }],
-  openGraph: {
-    title: siteConfig.title,
-    description: siteConfig.description,
-    type: "website",
-  },
-};
+export const metadata: Metadata = buildRootMetadata();
 
 export const viewport: Viewport = {
   themeColor: "#080808",

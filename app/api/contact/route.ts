@@ -53,7 +53,15 @@ export async function POST(request: Request) {
       data: { name, email, subject, message },
     });
 
-    void notifyAdminNewMessage({ name, email, subject, message });
+    const emailResult = await notifyAdminNewMessage({
+      name,
+      email,
+      subject,
+      message,
+    });
+    if (!emailResult.ok && process.env.NODE_ENV === "development") {
+      console.warn("[contact] Email notification failed:", emailResult);
+    }
 
     return NextResponse.json(
       { success: true, message: "Message received" },
