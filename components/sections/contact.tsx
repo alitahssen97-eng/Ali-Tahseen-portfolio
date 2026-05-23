@@ -11,18 +11,41 @@ import {
 } from "@/components/motion";
 import { useLocale } from "@/components/providers/locale-provider";
 import { layout, siteConfig } from "@/lib/constants";
+import { CONTACT_LIMITS } from "@/lib/contact/limits";
+import {
+  type ContactField,
+  type FieldErrors,
+  trimContactPayload,
+  validateContactForm,
+} from "@/lib/contact/validate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type FormState = "idle" | "loading" | "success" | "error";
+
+function fill(
+  template: string,
+  values: Record<string, string | number>
+): string {
+  return Object.entries(values).reduce(
+    (text, [key, value]) => text.replace(`{${key}}`, String(value)),
+    template
+  );
+}
 
 export function ContactSection() {
   const { t } = useLocale();
   const formRef = useRef<HTMLFormElement>(null);
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [messageLength, setMessageLength] = useState(0);
+
+  const f = t.contact.form;
+  const { message: msgLimits } = CONTACT_LIMITS;
 
   const channels = [
     {
@@ -48,6 +71,25 @@ export function ContactSection() {
     },
   ];
 
+  const messageHint = fill(f.messageHint, {
+    min: msgLimits.min,
+    max: msgLimits.max,
+  });
+
+  const messageCounter = fill(f.messageCounter, {
+    current: messageLength,
+    max: msgLimits.max,
+  });
+
+  const messageRemaining =
+    messageLength > 0 && messageLength < msgLimits.min
+      ? fill(f.messageRemaining, {
+          remaining: msgLimits.min - messageLength,
+        })
+      : null;
+
+  const messageReady = messageLength >= msgLimits.min;
+
   function clearStatus() {
     if (formState === "success" || formState === "error") {
       setFormState("idle");
@@ -55,19 +97,51 @@ export function ContactSection() {
     }
   }
 
+  function clearFieldError(field: ContactField) {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function handleMessageChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setMessageLength(e.target.value.length);
+    clearFieldError("message");
+    clearStatus();
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = formRef.current ?? e.currentTarget;
-    setFormState("loading");
     setErrorMessage("");
 
-    const formData = new FormData(form);
-    const payload = {
-      name: formData.get("name") as string,
-      email: formData.get("email") as string,
-      subject: formData.get("subject") as string,
-      message: formData.get("message") as string,
+    const raw = {
+      name: (formDataGet(form, "name") ?? "") as string,
+      email: (formDataGet(form, "email") ?? "") as string,
+      subject: (formDataGet(form, "subject") ?? "") as string,
+      message: (formDataGet(form, "message") ?? "") as string,
     };
+
+    const payload = trimContactPayload(raw);
+    const errors = validateContactForm(payload, {
+      nameTooShort: f.nameTooShort,
+      invalidEmail: f.invalidEmail,
+      subjectTooShort: f.subjectTooShort,
+      messageEmpty: f.messageEmpty,
+      messageTooShort: f.messageTooShort,
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setErrorMessage("");
+      setFormState("idle");
+      return;
+    }
+
+    setFieldErrors({});
+    setFormState("loading");
 
     try {
       const res = await fetch("/api/contact", {
@@ -79,17 +153,26 @@ export function ContactSection() {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
 
       if (!res.ok) {
-        throw new Error(data.error ?? t.contact.form.errorGeneric);
+        throw new Error(data.error ?? f.errorGeneric);
       }
 
       form.reset();
+      setMessageLength(0);
       setFormState("success");
     } catch (err) {
       setFormState("error");
       setErrorMessage(
-        err instanceof Error ? err.message : t.contact.form.errorGeneric
+        err instanceof Error ? err.message : f.errorGeneric
       );
     }
+  }
+
+  function resetForm() {
+    formRef.current?.reset();
+    setMessageLength(0);
+    setFieldErrors({});
+    setErrorMessage("");
+    setFormState("idle");
   }
 
   return (
@@ -144,55 +227,120 @@ export function ContactSection() {
             <form
               ref={formRef}
               onSubmit={handleSubmit}
+              noValidate
               className="rounded-lg border border-neutral-800/80 bg-neutral-950/40 p-5 backdrop-blur-md sm:p-8"
             >
               <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">{t.contact.form.name}</Label>
+                <Field
+                  id="name"
+                  label={f.name}
+                  error={fieldErrors.name}
+                >
                   <Input
                     id="name"
                     name="name"
-                    required
-                    placeholder={t.contact.form.namePlaceholder}
+                    autoComplete="name"
+                    placeholder={f.namePlaceholder}
                     disabled={formState === "loading"}
-                    onChange={clearStatus}
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    onChange={() => {
+                      clearFieldError("name");
+                      clearStatus();
+                    }}
+                    className={fieldErrors.name ? "border-red-800/60" : undefined}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">{t.contact.form.email}</Label>
+                </Field>
+                <Field
+                  id="email"
+                  label={f.email}
+                  error={fieldErrors.email}
+                >
                   <Input
                     id="email"
                     name="email"
                     type="email"
-                    required
-                    placeholder={t.contact.form.emailPlaceholder}
+                    autoComplete="email"
+                    placeholder={f.emailPlaceholder}
                     disabled={formState === "loading"}
-                    onChange={clearStatus}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    onChange={() => {
+                      clearFieldError("email");
+                      clearStatus();
+                    }}
+                    className={fieldErrors.email ? "border-red-800/60" : undefined}
                   />
-                </div>
+                </Field>
               </div>
-              <div className="mt-6 space-y-2">
-                <Label htmlFor="subject">{t.contact.form.subject}</Label>
+
+              <Field
+                id="subject"
+                label={f.subject}
+                error={fieldErrors.subject}
+                className="mt-6"
+              >
                 <Input
                   id="subject"
                   name="subject"
-                  required
-                  placeholder={t.contact.form.subjectPlaceholder}
+                  placeholder={f.subjectPlaceholder}
                   disabled={formState === "loading"}
-                  onChange={clearStatus}
+                  aria-invalid={Boolean(fieldErrors.subject)}
+                  onChange={() => {
+                    clearFieldError("subject");
+                    clearStatus();
+                  }}
+                  className={fieldErrors.subject ? "border-red-800/60" : undefined}
                 />
-              </div>
-              <div className="mt-6 space-y-2">
-                <Label htmlFor="message">{t.contact.form.message}</Label>
+              </Field>
+
+              <Field
+                id="message"
+                label={f.message}
+                hint={messageHint}
+                error={fieldErrors.message}
+                className="mt-6"
+              >
                 <Textarea
                   id="message"
                   name="message"
-                  required
-                  placeholder={t.contact.form.messagePlaceholder}
+                  rows={5}
+                  maxLength={msgLimits.max}
+                  placeholder={f.messagePlaceholder}
                   disabled={formState === "loading"}
-                  onChange={clearStatus}
+                  aria-invalid={Boolean(fieldErrors.message)}
+                  aria-describedby="message-meta"
+                  onChange={handleMessageChange}
+                  className={cn(
+                    "min-h-[120px] resize-y",
+                    fieldErrors.message && "border-red-800/60"
+                  )}
                 />
-              </div>
+                <div
+                  id="message-meta"
+                  className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs"
+                >
+                  <span
+                    className={cn(
+                      messageRemaining
+                        ? "text-amber-400/90"
+                        : messageReady
+                          ? "text-emerald-400/80"
+                          : "text-cream-400/45"
+                    )}
+                  >
+                    {messageRemaining ?? "\u00a0"}
+                  </span>
+                  <span
+                    className={cn(
+                      "tabular-nums",
+                      messageLength > msgLimits.max * 0.9
+                        ? "text-amber-400/90"
+                        : "text-cream-400/50"
+                    )}
+                  >
+                    {messageCounter}
+                  </span>
+                </div>
+              </Field>
 
               <div
                 className="mt-4 min-h-[1.25rem]"
@@ -209,44 +357,90 @@ export function ContactSection() {
                       exit={{ opacity: 0, y: -4 }}
                       className="rounded-sm border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-300"
                     >
-                      {t.contact.form.success}
+                      {f.success}
                     </motion.p>
                   )}
-                  {formState === "error" && (
-                    <motion.p
-                      key="error"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -4 }}
-                      className="rounded-sm border border-red-900/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
-                    >
-                      {errorMessage}
-                    </motion.p>
-                  )}
+                  {formState === "error" &&
+                    errorMessage &&
+                    Object.keys(fieldErrors).length === 0 && (
+                      <motion.p
+                        key="error"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="rounded-sm border border-red-900/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
+                      >
+                        {errorMessage}
+                      </motion.p>
+                    )}
                 </AnimatePresence>
               </div>
 
-              <Button
-                type="submit"
-                className="mt-6 w-full sm:w-auto"
-                disabled={formState === "loading" || formState === "success"}
-                variant={formState === "success" ? "outline" : "default"}
-              >
-                {formState === "loading" ? (
-                  t.contact.form.sending
-                ) : formState === "success" ? (
-                  t.contact.form.success
-                ) : (
-                  <>
-                    {t.contact.form.send}
-                    <Send className="h-4 w-4" />
-                  </>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button
+                  type="submit"
+                  className="w-full sm:w-auto"
+                  disabled={formState === "loading"}
+                >
+                  {formState === "loading" ? (
+                    f.sending
+                  ) : (
+                    <>
+                      {f.send}
+                      <Send className="h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+                {formState === "success" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={resetForm}
+                  >
+                    {f.sendAnother}
+                  </Button>
                 )}
-              </Button>
+              </div>
             </form>
           </ScrollReveal>
         </div>
       </div>
     </section>
+  );
+}
+
+function formDataGet(form: HTMLFormElement, name: string): string {
+  return (new FormData(form).get(name) as string | null) ?? "";
+}
+
+function Field({
+  id,
+  label,
+  hint,
+  error,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("space-y-2", className)}>
+      <Label htmlFor={id}>{label}</Label>
+      {hint && !error && (
+        <p className="text-xs text-cream-400/50">{hint}</p>
+      )}
+      {children}
+      {error && (
+        <p id={`${id}-error`} className="text-xs text-red-400" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

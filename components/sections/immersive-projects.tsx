@@ -60,6 +60,16 @@ function useBreakpoint(): Breakpoint {
   return bp;
 }
 
+const SWIPE_THRESHOLD_PX = 48;
+const DRAG_CLICK_THRESHOLD_PX = 10;
+
+function isInteractiveDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(
+    target.closest("a, button, input, textarea, label, [data-no-drag]")
+  );
+}
+
 type ProjectCardDescriptionProps = {
   description: string;
   projectId: string;
@@ -119,8 +129,9 @@ function ProjectCardDescription({
         {description}
       </p>
       {showToggle && (
-        <button
+          <button
           type="button"
+          data-no-drag
           onClick={(e) => {
             e.stopPropagation();
             setExpanded((prev) => !prev);
@@ -160,6 +171,13 @@ export function ImmersiveProjectsCarousel({
   const initialIndex = useMemo(() => Math.floor(count / 2), [count]);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef({
+    pointerId: -1,
+    startX: 0,
+    didDrag: false,
+  });
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const bp = useBreakpoint();
   const isMobile = bp === "mobile";
   const isTablet = bp === "tablet";
@@ -182,6 +200,68 @@ export function ImmersiveProjectsCarousel({
     if (count <= 1) return;
     goTo(activeIndex + 1);
   }, [activeIndex, count, goTo]);
+
+  const finishDrag = useCallback(
+    (dx: number) => {
+      setDragOffset(0);
+      setIsDragging(false);
+
+      if (Math.abs(dx) >= SWIPE_THRESHOLD_PX) {
+        if (dx < 0) handleNext();
+        else handlePrev();
+      }
+
+      window.setTimeout(() => {
+        dragRef.current.didDrag = false;
+      }, 0);
+    },
+    [handleNext, handlePrev]
+  );
+
+  const onCarouselPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (count <= 1 || e.button !== 0) return;
+      if (isInteractiveDragTarget(e.target)) return;
+
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        didDrag: false,
+      };
+      setIsDragging(true);
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [count]
+  );
+
+  const onCarouselPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging || dragRef.current.pointerId !== e.pointerId) return;
+
+      const dx = e.clientX - dragRef.current.startX;
+      if (Math.abs(dx) > DRAG_CLICK_THRESHOLD_PX) {
+        dragRef.current.didDrag = true;
+      }
+      setDragOffset(dx * 0.4);
+    },
+    [isDragging]
+  );
+
+  const onCarouselPointerEnd = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging || dragRef.current.pointerId !== e.pointerId) return;
+
+      const dx = e.clientX - dragRef.current.startX;
+      dragRef.current.pointerId = -1;
+
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+
+      finishDrag(dx);
+    },
+    [finishDrag, isDragging]
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -274,16 +354,27 @@ export function ImmersiveProjectsCarousel({
       aria-roledescription="carousel"
       aria-label="Projects carousel"
       className={cn(
-        "relative w-full overflow-hidden outline-none",
+        "relative w-full overflow-hidden outline-none touch-none select-none",
         "rounded-2xl border border-neutral-800/60 bg-neutral-950/40 backdrop-blur-md",
-        "focus-visible:ring-2 focus-visible:ring-emerald-700/40"
+        "focus-visible:ring-2 focus-visible:ring-emerald-700/40",
+        isDragging ? "cursor-grabbing" : "cursor-grab"
       )}
+      onPointerDown={onCarouselPointerDown}
+      onPointerMove={onCarouselPointerMove}
+      onPointerUp={onCarouselPointerEnd}
+      onPointerCancel={onCarouselPointerEnd}
     >
-      <div
+      <motion.div
         className={cn(
-          "relative flex items-center justify-center pb-10",
+          "relative flex w-full items-center justify-center pb-10",
           stageHeight
         )}
+        style={{ x: dragOffset }}
+        transition={
+          isDragging
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 320, damping: 32 }
+        }
       >
         {projects.map((project, index) => {
           const s = getCardStyle(index);
@@ -311,6 +402,7 @@ export function ImmersiveProjectsCarousel({
               transition={{ type: "spring", stiffness: 280, damping: 32 }}
               whileHover={isActive ? { scale: s.scale * 1.01 } : undefined}
               onClick={() => {
+                if (dragRef.current.didDrag) return;
                 if (!isActive) goTo(index);
               }}
               onKeyDown={(e) => {
@@ -416,7 +508,7 @@ export function ImmersiveProjectsCarousel({
             </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       <Button
         type="button"
