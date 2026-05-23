@@ -1,5 +1,6 @@
-import { prisma } from "@/lib/prisma";
 import { siteConfig } from "@/lib/constants";
+import { getCachedProfileImageUrl } from "@/lib/db/cached";
+import { prisma } from "@/lib/prisma";
 
 const SETTINGS_ID = "singleton";
 
@@ -9,10 +10,7 @@ export async function getProfileImageUrl(): Promise<string> {
   }
 
   try {
-    const settings = await prisma.siteSetting.findUnique({
-      where: { id: SETTINGS_ID },
-    });
-    return settings?.profileImageUrl || siteConfig.profileImageFallback;
+    return await getCachedProfileImageUrl();
   } catch {
     return siteConfig.profileImageFallback;
   }

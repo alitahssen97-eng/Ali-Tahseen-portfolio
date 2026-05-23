@@ -1,16 +1,21 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/utils/supabase/admin";
+import {
+  createAdminClient,
+  isStorageAdminConfigured,
+} from "@/utils/supabase/admin";
 
 export const PORTFOLIO_BUCKET = "portfolio";
 const MAX_SIZE = 5 * 1024 * 1024;
 
-export type ProfileUploadInput = {
+export type ImageUploadInput = {
   buffer: Buffer;
   ext: string;
   contentType: string;
 };
+
+export type UploadFolder = "profile" | "projects";
 
 function sanitizeExt(ext: string): string {
   const cleaned = ext.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -41,7 +46,6 @@ export async function ensurePortfolioBucket(
         "image/png",
         "image/webp",
         "image/gif",
-        "image/svg+xml",
       ],
     }
   );
@@ -51,11 +55,10 @@ export async function ensurePortfolioBucket(
   }
 }
 
-export async function uploadProfileToSupabase({
-  buffer,
-  ext,
-  contentType,
-}: ProfileUploadInput): Promise<string> {
+export async function uploadImageToSupabase(
+  { buffer, ext, contentType }: ImageUploadInput,
+  folder: UploadFolder
+): Promise<string> {
   const supabase = createAdminClient();
   if (!supabase) {
     throw new Error("MISSING_SERVICE_ROLE");
@@ -64,7 +67,8 @@ export async function uploadProfileToSupabase({
   await ensurePortfolioBucket(supabase);
 
   const safeExt = sanitizeExt(ext);
-  const objectPath = `profile/ali-profile-${Date.now()}.${safeExt}`;
+  const prefix = folder === "profile" ? "ali-profile" : "project";
+  const objectPath = `${folder}/${prefix}-${Date.now()}.${safeExt}`;
 
   const { error: uploadError } = await supabase.storage
     .from(PORTFOLIO_BUCKET)
@@ -86,22 +90,46 @@ export async function uploadProfileToSupabase({
 }
 
 /** Dev fallback when service role is not configured (local `npm run dev` only). */
-export async function uploadProfileLocally({
-  buffer,
-  ext,
-}: ProfileUploadInput): Promise<string> {
+export async function uploadImageLocally(
+  { buffer, ext }: ImageUploadInput,
+  folder: UploadFolder
+): Promise<string> {
   if (process.env.NODE_ENV === "production") {
     throw new Error("LOCAL_UPLOAD_DISABLED");
   }
 
   const safeExt = sanitizeExt(ext);
-  const filename = `ali-profile-${Date.now()}.${safeExt}`;
-  const dir = path.join(process.cwd(), "public", "uploads", "profile");
+  const prefix = folder === "profile" ? "ali-profile" : "project";
+  const filename = `${prefix}-${Date.now()}.${safeExt}`;
+  const dir = path.join(process.cwd(), "public", "uploads", folder);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, filename), buffer);
 
-  return `/uploads/profile/${filename}`;
+  return `/uploads/${folder}/${filename}`;
 }
+
+export async function uploadPortfolioImage(
+  input: ImageUploadInput,
+  folder: UploadFolder
+): Promise<string> {
+  if (isStorageAdminConfigured()) {
+    return uploadImageToSupabase(input, folder);
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    return uploadImageLocally(input, folder);
+  }
+
+  throw new Error("MISSING_SERVICE_ROLE");
+}
+
+/** @deprecated Use uploadPortfolioImage(input, "profile") */
+export const uploadProfileToSupabase = (input: ImageUploadInput) =>
+  uploadImageToSupabase(input, "profile");
+
+/** @deprecated Use uploadImageLocally(input, "profile") */
+export const uploadProfileLocally = (input: ImageUploadInput) =>
+  uploadImageLocally(input, "profile");
 
 export function mapUploadError(error: unknown): {
   status: number;
@@ -112,6 +140,14 @@ export function mapUploadError(error: unknown): {
       status: 503,
       message:
         "أضف SUPABASE_SERVICE_ROLE_KEY إلى ملف .env (من Supabase → Settings → API → service_role) ثم أعد تشغيل السيرفر.",
+    };
+  }
+
+  if (error instanceof Error && error.message === "LOCAL_UPLOAD_DISABLED") {
+    return {
+      status: 503,
+      message:
+        "أضف SUPABASE_SERVICE_ROLE_KEY إلى .env لرفع الصور في بيئة الإنتاج.",
     };
   }
 

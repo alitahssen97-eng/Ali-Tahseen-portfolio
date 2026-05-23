@@ -1,9 +1,14 @@
 /** Shared layout tokens for consistent spacing across breakpoints */
 export const layout = {
-  container: "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8",
-  section: "py-20 sm:py-28 lg:py-36",
-  navbarHeight: "h-16",
-  navbarOffset: "pt-16",
+  container:
+    "mx-auto w-full min-w-0 max-w-7xl [padding-inline:max(1rem,env(safe-area-inset-left,0px))_max(1rem,env(safe-area-inset-right,0px))] sm:[padding-inline:max(1.5rem,env(safe-area-inset-left,0px))_max(1.5rem,env(safe-area-inset-right,0px))] lg:[padding-inline:max(2rem,env(safe-area-inset-left,0px))_max(2rem,env(safe-area-inset-right,0px))]",
+  section: "w-full min-w-0 overflow-x-clip py-16 sm:py-28 lg:py-36",
+  navbarShell:
+    "fixed inset-x-0 top-0 z-50 w-full max-w-[100vw] overflow-x-clip pt-[env(safe-area-inset-top,0px)]",
+  navbarInner:
+    "grid min-h-14 w-full min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 sm:min-h-16 sm:gap-3",
+  navbarOffset:
+    "pt-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(4rem+env(safe-area-inset-top,0px))]",
 } as const;
 
 export const siteConfig = {

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, DM_Sans, Noto_Sans_Arabic } from "next/font/google";
+import { Cairo, Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { LocaleProvider } from "@/components/providers/locale-provider";
 import { ProfileImageProvider } from "@/components/providers/profile-provider";
 import { getProfileImageUrl } from "@/lib/site-settings";
@@ -22,9 +22,9 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-const notoArabic = Noto_Sans_Arabic({
+const cairo = Cairo({
   variable: "--font-arabic",
-  subsets: ["arabic"],
+  subsets: ["arabic", "latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
@@ -68,9 +68,9 @@ export default async function RootLayout({
       lang="en"
       dir="ltr"
       suppressHydrationWarning
-      className={`${cormorant.variable} ${dmSans.variable} ${notoArabic.variable} h-full scroll-smooth`}
+      className={`${cormorant.variable} ${dmSans.variable} ${cairo.variable} h-full scroll-smooth`}
     >
-      <body className="min-h-full bg-[#080808] font-sans text-cream-100 antialiased">
+      <body className="min-h-full w-full min-w-0 overflow-x-clip bg-[#080808] font-sans text-cream-100 antialiased">
         <LocaleProvider contentBundle={contentBundle}>
           <ProfileImageProvider imageUrl={profileImageUrl}>
             <TooltipProvider>{children}</TooltipProvider>

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/admin";
+import { revalidatePublicCache } from "@/lib/db/revalidate";
 import { getEditableContentRows, saveContentRows } from "@/lib/content";
+import { isSafeContentKey } from "@/lib/security/sanitize";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -16,9 +18,13 @@ export async function GET() {
 const saveSchema = z.object({
   rows: z.array(
     z.object({
-      key: z.string().min(1),
-      en: z.string(),
-      ar: z.string(),
+      key: z
+        .string()
+        .min(1)
+        .max(200)
+        .refine(isSafeContentKey, "Invalid content key"),
+      en: z.string().max(50_000),
+      ar: z.string().max(50_000),
     })
   ),
 });
@@ -37,6 +43,7 @@ export async function PUT(request: Request) {
     }
 
     await saveContentRows(parsed.data.rows);
+    revalidatePublicCache();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Save content error:", error);

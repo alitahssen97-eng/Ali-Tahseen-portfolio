@@ -9,8 +9,13 @@ export function flattenObject(
 
     if (value === null || value === undefined) continue;
 
-    if (typeof value === "object") {
+    if (Array.isArray(value)) {
       result[path] = JSON.stringify(value);
+    } else if (typeof value === "object") {
+      Object.assign(
+        result,
+        flattenObject(value as Record<string, unknown>, path)
+      );
     } else {
       result[path] = String(value);
     }
@@ -19,13 +24,23 @@ export function flattenObject(
   return result;
 }
 
+/** Old admin saves used top-level section keys with JSON blobs — ignore them. */
+export function isLegacySectionBlob(key: string, value: string): boolean {
+  if (key.includes(".")) return false;
+  const trimmed = value.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
 export function unflattenObject(
   flat: Record<string, string>
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
   for (const [path, raw] of Object.entries(flat)) {
-    const keys = path.split(".");
+    const keys = path.split(".").filter(
+      (k) => k !== "__proto__" && k !== "prototype" && k !== "constructor"
+    );
+    if (keys.length === 0) continue;
     let current: Record<string, unknown> = result;
 
     for (let i = 0; i < keys.length - 1; i++) {

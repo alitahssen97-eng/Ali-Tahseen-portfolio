@@ -27,7 +27,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           type="button"
           onClick={() => setLocale(id)}
           className={cn(
-            "min-w-[2.25rem] rounded-sm px-2 py-1.5 text-[11px] font-medium transition-all duration-300 sm:min-w-[2.5rem] sm:px-2.5 sm:text-xs",
+            "min-w-[2rem] rounded-sm px-1.5 py-1 text-[10px] font-medium transition-all duration-300 sm:min-w-[2.5rem] sm:px-2.5 sm:py-1.5 sm:text-xs",
             locale === id
               ? "bg-emerald-600/90 text-cream-50 shadow-sm"
               : "text-cream-400/70 hover:text-emerald-300"

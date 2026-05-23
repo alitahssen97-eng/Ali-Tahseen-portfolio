@@ -33,7 +33,7 @@ export function HeroSection() {
 
   return (
     <section
-      className={`relative flex min-h-[100dvh] items-center justify-center overflow-hidden ${layout.navbarOffset}`}
+      className={`relative flex min-h-[100dvh] w-full min-w-0 items-center justify-center overflow-x-clip overflow-y-hidden ${layout.navbarOffset}`}
     >
       <motion.div
         aria-hidden
@@ -63,7 +63,7 @@ export function HeroSection() {
       </motion.div>
 
       <div
-        className={`relative z-10 flex flex-col items-center text-center ${layout.container}`}
+        className={`relative z-10 flex w-full min-w-0 flex-col items-center text-center ${layout.container}`}
       >
         <ProfileAvatar alt={t.hero.profileAlt} className="mb-6 sm:mb-8" />
 
@@ -80,7 +80,7 @@ export function HeroSection() {
           initial={{ opacity: 0, y: 28 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="font-display text-4xl font-light leading-[1.08] tracking-tight text-cream-50 sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
+          className="max-w-[min(100%,20rem)] font-display text-[clamp(1.75rem,8vw,2.5rem)] font-light leading-[1.08] tracking-tight text-cream-50 sm:max-w-none sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl"
         >
           {t.hero.nameLine1}
           <br />

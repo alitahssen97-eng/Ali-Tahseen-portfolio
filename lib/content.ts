@@ -1,10 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { flattenObject, unflattenObject, deepMerge } from "@/lib/i18n/flatten";
+import { getCachedSiteContentBundle } from "@/lib/db/cached";
 import { translations } from "@/lib/i18n/translations";
+import { fetchContentOverrides } from "@/lib/db/queries/content";
+import {
+  flattenObject,
+  unflattenObject,
+  deepMerge,
+  isLegacySectionBlob,
+} from "@/lib/i18n/flatten";
 import type { TranslationKeys } from "@/lib/i18n/translations";
 import type { Locale } from "@/lib/i18n/types";
 
-export type SiteContentBundle = Record<Locale, TranslationKeys>;
+export type { SiteContentBundle } from "@/lib/content/types";
+import type { SiteContentBundle } from "@/lib/content/types";
 
 export function getDefaultContentBundle(): SiteContentBundle {
   return {
@@ -13,40 +21,16 @@ export function getDefaultContentBundle(): SiteContentBundle {
   };
 }
 
-async function getContentOverrides(): Promise<
-  Record<Locale, Record<string, string>>
-> {
-  const empty: Record<Locale, Record<string, string>> = { en: {}, ar: {} };
-
-  if (!process.env.DATABASE_URL) return empty;
+export async function getSiteContentBundle(): Promise<SiteContentBundle> {
+  if (!process.env.DATABASE_URL) {
+    return getDefaultContentBundle();
+  }
 
   try {
-    const blocks = await prisma.contentBlock.findMany();
-    for (const block of blocks) {
-      const locale = block.locale as Locale;
-      if (locale !== "en" && locale !== "ar") continue;
-      empty[locale][block.key] = block.value;
-    }
-    return empty;
+    return await getCachedSiteContentBundle();
   } catch {
-    return empty;
+    return getDefaultContentBundle();
   }
-}
-
-export async function getSiteContentBundle(): Promise<SiteContentBundle> {
-  const defaults = getDefaultContentBundle();
-  const overrides = await getContentOverrides();
-
-  return {
-    en: deepMerge(
-      defaults.en,
-      unflattenObject(overrides.en) as Record<string, unknown>
-    ) as TranslationKeys,
-    ar: deepMerge(
-      defaults.ar,
-      unflattenObject(overrides.ar) as Record<string, unknown>
-    ) as TranslationKeys,
-  };
 }
 
 export function getContentForLocale(
@@ -63,7 +47,15 @@ export async function getEditableContentRows(): Promise<
   const defaults = getDefaultContentBundle();
   const flatEn = flattenObject(defaults.en as unknown as Record<string, unknown>);
   const flatAr = flattenObject(defaults.ar as unknown as Record<string, unknown>);
-  const overrides = await getContentOverrides();
+
+  let overrides: Record<Locale, Record<string, string>> = { en: {}, ar: {} };
+  if (process.env.DATABASE_URL) {
+    try {
+      overrides = await fetchContentOverrides();
+    } catch {
+      // use defaults only
+    }
+  }
 
   const allKeys = new Set([
     ...Object.keys(flatEn),
@@ -73,6 +65,11 @@ export async function getEditableContentRows(): Promise<
   ]);
 
   return Array.from(allKeys)
+    .filter((key) => {
+      const en = overrides.en[key] ?? flatEn[key] ?? "";
+      const ar = overrides.ar[key] ?? flatAr[key] ?? "";
+      return !isLegacySectionBlob(key, en) && !isLegacySectionBlob(key, ar);
+    })
     .sort()
     .map((key) => ({
       key,

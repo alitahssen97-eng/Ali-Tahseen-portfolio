@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { translateText } from "@/lib/translate";
 
 const schema = z.object({
-  text: z.string(),
+  text: z.string().max(20_000),
   source: z.enum(["ar", "en"]),
   target: z.enum(["ar", "en"]),
 });

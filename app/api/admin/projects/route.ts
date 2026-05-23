@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { revalidatePublicCache } from "@/lib/db/revalidate";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/prisma";
 import { getAllProjects } from "@/lib/projects";
+import { isSafePortfolioImageUrl } from "@/lib/security/sanitize";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -19,10 +22,22 @@ const optionalUrl = z.preprocess(
   z.union([z.string().url(), z.null()]).optional()
 );
 
+/** Accepts absolute URLs (http/https) or local upload paths (/uploads/...). */
+const imagePath = z
+  .string()
+  .min(1, "صورة المشروع مطلوبة")
+  .refine(isSafePortfolioImageUrl, "رابط الصورة غير صالح");
+
+const optionalText = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? null : val),
+  z.union([z.string(), z.null()]).optional()
+);
+
 const projectSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
-  imageUrl: z.string().url(),
+  descriptionAr: optionalText,
+  imageUrl: imagePath,
   liveLink: optionalUrl,
   githubLink: optionalUrl,
   tags: z.array(z.string()).default([]),
@@ -47,6 +62,8 @@ export async function POST(request: Request) {
     }
 
     const project = await prisma.project.create({ data: parsed.data });
+    revalidatePublicCache();
+    revalidatePath("/admin/projects");
     return NextResponse.json({ project }, { status: 201 });
   } catch (error) {
     console.error("Create project error:", error);

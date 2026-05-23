@@ -2,16 +2,31 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { notifyAdminNewMessage } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit, getClientIp } from "@/lib/security/rate-limit";
 
 const contactSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  subject: z.string().min(3, "Subject must be at least 3 characters"),
-  message: z.string().min(10, "Message must be at least 10 characters"),
+  name: z.string().min(2).max(120),
+  email: z.string().email().max(254),
+  subject: z.string().min(3).max(200),
+  message: z.string().min(10).max(5000),
 });
 
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request);
+    const limit = checkRateLimit(`contact:${ip}`, 5, 15 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: limit.retryAfterSec
+            ? { "Retry-After": String(limit.retryAfterSec) }
+            : undefined,
+        }
+      );
+    }
+
     const body = await request.json();
     const parsed = contactSchema.safeParse(body);
 

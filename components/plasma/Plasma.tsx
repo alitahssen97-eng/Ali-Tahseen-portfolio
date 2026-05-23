@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { Mesh, Program, Renderer, Triangle } from "ogl";
 import "./Plasma.css";
 
+/** Wrap animation time (seconds) to avoid shader precision loss after long uptime */
+const TIME_WRAP_SEC = 50 * Math.PI * 2;
+
 const hexToRgb = (hex: string): [number, number, number] => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return [1, 0.5, 0.2];
@@ -63,7 +66,9 @@ void mainImage(out vec4 o, vec2 C) {
   vec2 mouseOffset = (uMouse - center) * 0.0002;
   C += mouseOffset * length(C - center) * step(0.5, uMouseInteractive);
   
-  float i, d, z, T = iTime * uSpeed * uDirection;
+  // Keep T in a bounded range so sin/cos stay accurate during long sessions
+  const float TAU = 6.28318530718;
+  float i, d, z, T = mod(iTime * uSpeed * uDirection, 50.0 * TAU);
   vec3 O, p, S;
 
   for (vec2 r = iResolution.xy, Q; ++i < 60.; O += o.w/d*o.xyz) {
@@ -220,12 +225,14 @@ export function Plasma({
 
       let contextLost = false;
       let isVisible = true;
+      let pageVisible = !document.hidden;
       const t0 = performance.now();
 
       const loop = (t: number) => {
-        if (destroyed || contextLost || !isVisible || !renderer) return;
+        if (destroyed || contextLost || !isVisible || !pageVisible || !renderer)
+          return;
 
-        const timeValue = (t - t0) * 0.001;
+        const timeValue = ((t - t0) * 0.001) % TIME_WRAP_SEC;
 
         if (direction === "pingpong") {
           const pingpongDuration = 10;
@@ -244,6 +251,14 @@ export function Plasma({
 
         renderer.render({ scene: mesh });
         raf = requestAnimationFrame(loop);
+      };
+
+      const handleVisibility = () => {
+        pageVisible = !document.hidden;
+        if (pageVisible && isVisible && !contextLost && !destroyed) {
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(loop);
+        }
       };
 
       const handleContextLost = (e: Event) => {
@@ -277,10 +292,12 @@ export function Plasma({
       );
       io.observe(containerEl);
 
+      document.addEventListener("visibilitychange", handleVisibility);
       raf = requestAnimationFrame(loop);
 
       removeListeners = () => {
         containerEl.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("visibilitychange", handleVisibility);
         canvas?.removeEventListener("webglcontextlost", handleContextLost);
         canvas?.removeEventListener("webglcontextrestored", handleContextRestored);
       };

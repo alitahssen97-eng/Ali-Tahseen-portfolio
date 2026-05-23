@@ -9,18 +9,21 @@ datasource db {
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  title       String
-  description String   @db.Text
-  imageUrl    String
-  liveLink    String?
-  githubLink  String?
-  tags        String[]
-  featured    Boolean  @default(false)
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
+  id            String   @id @default(cuid())
+  title         String
+  description   String   @db.Text
+  descriptionAr String?  @db.Text
+  imageUrl      String
+  liveLink      String?
+  githubLink    String?
+  tags          String[]
+  featured      Boolean  @default(false)
+  published     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
 
+  @@index([published, featured(sort: Desc), createdAt(sort: Desc)])
+  @@index([published])
   @@map("projects")
 }
 
@@ -33,6 +36,8 @@ model Message {
   status    MessageStatus @default(PENDING)
   createdAt DateTime      @default(now())
 
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
   @@map("messages")
 }
 
@@ -51,6 +56,7 @@ model ContentBlock {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([key, locale])
+  @@index([locale])
   @@map("content_blocks")
 }
 

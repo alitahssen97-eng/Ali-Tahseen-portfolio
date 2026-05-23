@@ -47,11 +47,6 @@ export const translations = {
         "UI/UX Engineering",
         "Database Design",
       ],
-      stats: [
-        { value: "8+", label: "Years Experience" },
-        { value: "50+", label: "Projects Delivered" },
-        { value: "99.9%", label: "Uptime Focus" },
-      ],
     },
     projects: {
       label: "Portfolio",
@@ -61,6 +56,9 @@ export const translations = {
       featured: "Featured",
       viewProject: "View Project",
       githubRepo: "GitHub repository",
+      showMore: "Show more",
+      showLess: "Show less",
+      empty: "New projects are coming soon. Stay tuned.",
     },
     contact: {
       label: "Contact",
@@ -136,11 +134,6 @@ export const translations = {
         "هندسة UI/UX",
         "تصميم قواعد البيانات",
       ],
-      stats: [
-        { value: "+8", label: "سنوات خبرة" },
-        { value: "+50", label: "مشروع منجز" },
-        { value: "99.9%", label: "تركيز على الاستقرار" },
-      ],
     },
     projects: {
       label: "معرض الأعمال",
@@ -150,6 +143,9 @@ export const translations = {
       featured: "مميز",
       viewProject: "عرض المشروع",
       githubRepo: "مستودع GitHub",
+      showMore: "إظهار المزيد",
+      showLess: "إظهار أقل",
+      empty: "ستظهر هنا المشاريع المنشورة قريباً.",
     },
     contact: {
       label: "تواصل",

@@ -1,17 +1,31 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
+import { revalidatePublicCache } from "@/lib/db/revalidate";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/prisma";
+import { isSafePortfolioImageUrl } from "@/lib/security/sanitize";
 
 const optionalUrl = z.preprocess(
   (val) => (val === "" || val === undefined ? null : val),
   z.union([z.string().url(), z.null()]).optional()
 );
 
+const imagePath = z
+  .string()
+  .min(1)
+  .refine(isSafePortfolioImageUrl, "رابط الصورة غير صالح");
+
+const optionalText = z.preprocess(
+  (val) => (typeof val === "string" && val.trim() === "" ? null : val),
+  z.union([z.string(), z.null()]).optional()
+);
+
 const projectSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
-  imageUrl: z.string().url().optional(),
+  descriptionAr: optionalText,
+  imageUrl: imagePath.optional(),
   liveLink: optionalUrl,
   githubLink: optionalUrl,
   tags: z.array(z.string()).optional(),
@@ -57,6 +71,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       where: { id },
       data: parsed.data,
     });
+    revalidatePublicCache();
+    revalidatePath("/admin/projects");
     return NextResponse.json({ project });
   } catch {
     return NextResponse.json(
@@ -76,6 +92,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
   try {
     await prisma.project.delete({ where: { id } });
+    revalidatePublicCache();
+    revalidatePath("/admin/projects");
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

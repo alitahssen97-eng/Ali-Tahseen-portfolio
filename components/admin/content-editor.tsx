@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Languages, Save } from "lucide-react";
-import { shouldSkipAutoTranslate } from "@/lib/translate";
+import {
+  isArabicFieldTranslatable,
+  shouldSkipAutoTranslate,
+} from "@/lib/translate";
 
 type ContentRow = {
   key: string;
@@ -85,11 +88,14 @@ export function ContentEditor() {
   }
 
   async function translateAllFromArabic() {
-    const eligible = rows.filter(
-      (r) => r.ar.trim() && !shouldSkipAutoTranslate(r.ar)
-    );
+    const eligible = rows.filter((r) => isArabicFieldTranslatable(r.ar));
     if (eligible.length === 0) {
-      setMessage("لا توجد حقول عربية قابلة للترجمة");
+      const hasArabic = rows.some((r) => r.ar.trim());
+      setMessage(
+        hasArabic
+          ? "لا توجد حقول نصية للترجمة (القوائم والإحصائيات تُعدَّل يدوياً)."
+          : "أضف نصاً عربياً في الحقول أولاً ثم اضغط الترجمة."
+      );
       return;
     }
 
@@ -194,11 +200,7 @@ export function ContentEditor() {
                 variant="ghost"
                 size="sm"
                 className="h-8 text-xs"
-                disabled={
-                  translating ||
-                  !row.ar.trim() ||
-                  shouldSkipAutoTranslate(row.ar)
-                }
+                disabled={translating || !isArabicFieldTranslatable(row.ar)}
                 onClick={() => translateRow(row.key)}
               >
                 <Languages className="h-3 w-3" />

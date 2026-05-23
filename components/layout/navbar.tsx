@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { layout } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-const navIds = ["about", "work", "contact"] as const;
+const navIds = ["work", "about", "contact"] as const;
 
 export function Navbar() {
   const { t } = useLocale();
@@ -40,8 +40,7 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50",
-        layout.navbarHeight,
+        layout.navbarShell,
         "transition-[background,border,box-shadow] duration-300",
         scrolled
           ? "border-b border-neutral-800/80 bg-[#080808]/90 shadow-sm shadow-black/20 backdrop-blur-md"
@@ -49,19 +48,16 @@ export function Navbar() {
       )}
     >
       <nav
-        className={cn(
-          layout.container,
-          "flex h-full items-center justify-between gap-3 sm:gap-4"
-        )}
+        className={cn(layout.container, layout.navbarInner)}
       >
         <Link
           href="/"
-          className="shrink-0 font-display text-base tracking-wide text-cream-50 transition-colors hover:text-emerald-400 sm:text-lg"
+          className="col-start-1 justify-self-start font-display text-sm tracking-wide text-cream-50 transition-colors hover:text-emerald-400 sm:text-lg"
         >
           A<span className="text-emerald-500">.</span>T
         </Link>
 
-        <ul className="hidden min-w-0 flex-1 items-center justify-center gap-5 md:flex lg:gap-8">
+        <ul className="col-start-2 hidden items-center justify-center gap-5 md:flex lg:gap-8">
           {navItems.map((item) => (
             <li key={item.id}>
               <Link
@@ -74,24 +70,26 @@ export function Navbar() {
           ))}
         </ul>
 
-        <div className="hidden shrink-0 items-center gap-2 md:flex lg:gap-3">
+        <div className="col-start-3 hidden items-center justify-self-end gap-2 md:flex lg:gap-3">
           <LanguageSwitcher />
           <Button asChild variant="outline" size="sm" className="h-9 px-3 text-xs lg:h-9 lg:px-4">
             <Link href="#contact">{t.nav.getInTouch}</Link>
           </Button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 md:hidden">
-          <LanguageSwitcher className="scale-[0.95] origin-end" />
-          <button
+        <div className="col-start-3 flex items-center justify-self-end gap-1 md:hidden">
+          <LanguageSwitcher />
+          <Button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-cream-200 transition-colors hover:bg-neutral-900/80"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 min-h-8 min-w-8 sm:h-9 sm:w-9"
             onClick={() => setMobileOpen((v) => !v)}
             aria-expanded={mobileOpen}
             aria-label={mobileOpen ? t.nav.closeMenu : t.nav.openMenu}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          </Button>
         </div>
       </nav>
 

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Instagram, Mail, MessageCircle, Send } from "lucide-react";
-import { FadeIn } from "@/components/motion/fade-in";
+import {
+  ScrollReveal,
+  ScrollRevealStagger,
+  SectionHeader,
+} from "@/components/motion";
 import { useLocale } from "@/components/providers/locale-provider";
 import { layout, siteConfig } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -16,6 +20,7 @@ type FormState = "idle" | "loading" | "success" | "error";
 
 export function ContactSection() {
   const { t } = useLocale();
+  const formRef = useRef<HTMLFormElement>(null);
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -43,12 +48,20 @@ export function ContactSection() {
     },
   ];
 
+  function clearStatus() {
+    if (formState === "success" || formState === "error") {
+      setFormState("idle");
+      setErrorMessage("");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = formRef.current ?? e.currentTarget;
     setFormState("loading");
     setErrorMessage("");
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(form);
     const payload = {
       name: formData.get("name") as string,
       email: formData.get("email") as string,
@@ -63,13 +76,14 @@ export function ContactSection() {
         body: JSON.stringify(payload),
       });
 
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error ?? t.contact.form.errorGeneric);
       }
 
+      form.reset();
       setFormState("success");
-      e.currentTarget.reset();
     } catch (err) {
       setFormState("error");
       setErrorMessage(
@@ -84,22 +98,22 @@ export function ContactSection() {
       <div className="pointer-events-none absolute bottom-0 start-1/2 h-[400px] w-[600px] -translate-x-1/2 rounded-full bg-emerald-950/20 blur-[120px] rtl:translate-x-1/2" />
 
       <div className={`relative ${layout.container}`}>
-        <FadeIn>
+        <SectionHeader>
           <p className="text-xs font-medium uppercase tracking-[0.4em] text-emerald-500/90">
             {t.contact.label}
           </p>
           <h2 className="mt-3 max-w-2xl font-display text-3xl font-light text-cream-50 sm:mt-4 sm:text-4xl md:text-5xl lg:text-6xl">
             {t.contact.title}
           </h2>
-        </FadeIn>
+        </SectionHeader>
 
         <div className="mt-10 grid gap-10 sm:mt-14 sm:gap-12 lg:mt-16 lg:grid-cols-5 lg:gap-16">
-          <FadeIn delay={0.1} className="lg:col-span-2">
+          <ScrollReveal preset="fromStart" className="lg:col-span-2" delay={0.05}>
             <div className="space-y-6">
               <p className="leading-relaxed text-cream-300/70">
                 {t.contact.intro}
               </p>
-              <ul className="space-y-4">
+              <ScrollRevealStagger as="ul" className="space-y-4" stagger={0.12}>
                 {channels.map(({ key, href, icon: Icon, value, external }) => (
                   <li key={key}>
                     <Link
@@ -122,12 +136,13 @@ export function ContactSection() {
                     </Link>
                   </li>
                 ))}
-              </ul>
+              </ScrollRevealStagger>
             </div>
-          </FadeIn>
+          </ScrollReveal>
 
-          <FadeIn delay={0.2} className="lg:col-span-3">
+          <ScrollReveal preset="fromEnd" className="lg:col-span-3" delay={0.15}>
             <form
+              ref={formRef}
               onSubmit={handleSubmit}
               className="rounded-lg border border-neutral-800/80 bg-neutral-950/40 p-5 backdrop-blur-md sm:p-8"
             >
@@ -140,6 +155,7 @@ export function ContactSection() {
                     required
                     placeholder={t.contact.form.namePlaceholder}
                     disabled={formState === "loading"}
+                    onChange={clearStatus}
                   />
                 </div>
                 <div className="space-y-2">
@@ -151,6 +167,7 @@ export function ContactSection() {
                     required
                     placeholder={t.contact.form.emailPlaceholder}
                     disabled={formState === "loading"}
+                    onChange={clearStatus}
                   />
                 </div>
               </div>
@@ -162,6 +179,7 @@ export function ContactSection() {
                   required
                   placeholder={t.contact.form.subjectPlaceholder}
                   disabled={formState === "loading"}
+                  onChange={clearStatus}
                 />
               </div>
               <div className="mt-6 space-y-2">
@@ -172,39 +190,52 @@ export function ContactSection() {
                   required
                   placeholder={t.contact.form.messagePlaceholder}
                   disabled={formState === "loading"}
+                  onChange={clearStatus}
                 />
               </div>
 
-              <AnimatePresence mode="wait">
-                {formState === "success" && (
-                  <motion.p
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="mt-4 text-sm text-emerald-400"
-                  >
-                    {t.contact.form.success}
-                  </motion.p>
-                )}
-                {formState === "error" && (
-                  <motion.p
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="mt-4 text-sm text-red-400"
-                  >
-                    {errorMessage}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+              <div
+                className="mt-4 min-h-[1.25rem]"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <AnimatePresence mode="wait">
+                  {formState === "success" && (
+                    <motion.p
+                      key="success"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="rounded-sm border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-300"
+                    >
+                      {t.contact.form.success}
+                    </motion.p>
+                  )}
+                  {formState === "error" && (
+                    <motion.p
+                      key="error"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="rounded-sm border border-red-900/40 bg-red-950/20 px-3 py-2 text-sm text-red-400"
+                    >
+                      {errorMessage}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <Button
                 type="submit"
-                className="mt-8 w-full sm:w-auto"
-                disabled={formState === "loading"}
+                className="mt-6 w-full sm:w-auto"
+                disabled={formState === "loading" || formState === "success"}
+                variant={formState === "success" ? "outline" : "default"}
               >
                 {formState === "loading" ? (
                   t.contact.form.sending
+                ) : formState === "success" ? (
+                  t.contact.form.success
                 ) : (
                   <>
                     {t.contact.form.send}
@@ -213,7 +244,7 @@ export function ContactSection() {
                 )}
               </Button>
             </form>
-          </FadeIn>
+          </ScrollReveal>
         </div>
       </div>
     </section>

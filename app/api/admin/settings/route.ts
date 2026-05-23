@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/admin";
+import { revalidatePublicCache } from "@/lib/db/revalidate";
 import { getProfileImageUrl, updateProfileImageUrl } from "@/lib/site-settings";
 
 export async function GET() {
@@ -31,6 +32,7 @@ export async function PATCH(request: Request) {
     }
 
     await updateProfileImageUrl(parsed.data.profileImageUrl);
+    revalidatePublicCache();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Settings update error:", error);

@@ -44,10 +44,17 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isAdminArea = pathname.startsWith("/admin");
+  const isAdminApi =
+    pathname.startsWith("/api/admin") &&
+    !pathname.startsWith("/api/admin/auth");
   const isLoginPage = pathname === "/admin/login";
   const adminEmails = getAdminEmails();
   const isAdmin =
     user?.email && adminEmails.includes(user.email.toLowerCase());
+
+  if (isAdminApi && !isAdmin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   if (isAdminArea && !isLoginPage) {
     if (!isAdmin) {
